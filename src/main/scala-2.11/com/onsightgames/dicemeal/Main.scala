@@ -19,8 +19,8 @@ object Main extends App {
   def takeTurn(game: Game, player: Player): Player = {
     game.dice.resetDice()
 
-    println(s"\n${player.name}'s turn:")
-    val score = takeTurn(game.dice, 0, 0)
+    println(s"\n\n${player.name}'s turn:")
+    val score = takeTurn(game.dice, 0, 1)
 
     lazy val playerHasStarted = player.score != 0
     lazy val playerCanStart =  score >= game.StartingScore
@@ -34,18 +34,24 @@ object Main extends App {
   }
 
   @tailrec
-  private def takeTurn(dice: Dice, score : Int, roundNumber: Int): Int = {
+  private def takeTurn(dice: Dice, score : Int, roundNumber: Int, hasAttemptedSingleThrow: Boolean = false): Int = {
     dice.remainingDice.foreach(_.roll())
 
-    println(s"\nYou rolled: ${game.dice.remainingDice.map(_.value).mkString(",")}")
+    println(s"\nYou rolled: ${game.dice.remainingDice.map(_.value).sorted.mkString(",")}")
 
     game.calculateScoringDice(game.dice.remainingDice, 0).zipWithIndex match {
       case Nil if dice.remainingDice.length == dice.dice.length =>
         println("Oh shit! -> No scoring Dice!")
         score + NoScoringDice.score
+
+      case Nil if dice.remainingDice.length == 1 && !hasAttemptedSingleThrow =>
+        println("You have one more chance to score on this die!")
+        takeTurn(dice, score, roundNumber, hasAttemptedSingleThrow = true)
+
       case Nil         =>
         println("Zero score for this round")
         0
+
       case scoringDice =>
         println(s"Possible choices are: \n${formatScoringDice(scoringDice)}")
         val choices = readIntegers("Please enter your Choices: ", scoringDice)
@@ -54,22 +60,28 @@ object Main extends App {
         val diceToRemove = diceChoices.flatMap(_.dice)
         val roundScore   = diceChoices.map(_.score).sum
 
-        val newScore = score + roundScore
+        val newScore = if (dice.remainingDice.length == 1) {
+          println("You scored with a single die - bonus points!")
+          score + roundScore + 500 * roundNumber
+        }
+        else score + roundScore
 
         dice.useDice(diceToRemove)
 
         println(s"new score = $newScore")
 
-        if (dice.remainingDice == Nil) {
-          dice.resetDice()
-          takeTurn(dice, newScore, roundNumber + 1)
+        val newRoundNum = dice.remainingDice match {
+          case Nil =>
+            dice.resetDice()
+            roundNumber + 1
+          case _ =>
+            roundNumber
         }
+
+        if (readBool("Roll again? "))
+          takeTurn(dice, newScore, newRoundNum)
         else {
-          if (readBool("Roll again? "))
-            takeTurn(dice, newScore, roundNumber)
-          else {
-            newScore
-          }
+          newScore
         }
     }
   }
@@ -129,6 +141,11 @@ object Main extends App {
   }.map(name => Player(name)).toList
 
   var game = Game(players)
+
+  print("Set the seed for this new game: ")
+  val seed = readInt()
+  DiceMeal.setSeed(seed)
+
 
   while (!game.gameIsOver) {
     val newPlayers = game.players.map(player => takeTurn(game, player))
