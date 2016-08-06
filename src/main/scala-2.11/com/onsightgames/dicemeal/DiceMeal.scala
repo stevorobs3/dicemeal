@@ -1,3 +1,7 @@
+package com.onsightgames.dicemeal
+
+import com.onsightgames.dicemeal.dice.Die
+
 import scala.util.Random
 
 object DiceMeal {
@@ -12,7 +16,7 @@ object DiceMeal {
   }
 
   def nextRoll(): Int = {
-    random.nextInt(MaxRoll - 1)
+    1 + random.nextInt(MaxRoll - 1)
   }
 
   def calculateScore(dice: List[Die]) = {

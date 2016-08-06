@@ -1,1 +1,0 @@
-class Dice(values : List[Die])
